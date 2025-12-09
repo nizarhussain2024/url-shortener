@@ -14,7 +14,9 @@ type URLMapping struct {
 	ShortCode   string    `json:"short_code"`
 	OriginalURL string    `json:"original_url"`
 	CreatedAt   time.Time `json:"created_at"`
+	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
 	ClickCount  int       `json:"click_count"`
+	CustomCode  string    `json:"custom_code,omitempty"`
 }
 
 type URLStore struct {
@@ -29,9 +31,9 @@ var store = &URLStore{
 }
 
 func main() {
-	http.HandleFunc("/api/shorten", shortenHandler)
-	http.HandleFunc("/", redirectHandler)
-	http.HandleFunc("/api/stats/", statsHandler)
+	http.HandleFunc("/api/shorten", loggingMiddleware(shortenHandler))
+	http.HandleFunc("/", loggingMiddleware(redirectHandler))
+	http.HandleFunc("/api/stats/", loggingMiddleware(statsHandler))
 	http.HandleFunc("/health", healthHandler)
 
 	fmt.Println("URL Shortener running on :8080")
@@ -53,7 +55,9 @@ func shortenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		URL string `json:"url"`
+		URL        string `json:"url"`
+		CustomCode string `json:"custom_code,omitempty"`
+		ExpiresIn  int    `json:"expires_in_days,omitempty"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -66,16 +70,38 @@ func shortenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !validateURL(req.URL) {
+		http.Error(w, "Invalid URL format. Must start with http:// or https://", http.StatusBadRequest)
+		return
+	}
+
 	store.mu.Lock()
-	store.counter++
-	shortCode := base64.URLEncoding.EncodeToString([]byte(fmt.Sprintf("%d", store.counter)))[:8]
+	var shortCode string
+	if req.CustomCode != "" {
+		if _, exists := store.urls[req.CustomCode]; exists {
+			store.mu.Unlock()
+			http.Error(w, "Custom code already exists", http.StatusConflict)
+			return
+		}
+		shortCode = req.CustomCode
+	} else {
+		store.counter++
+		shortCode = base64.URLEncoding.EncodeToString([]byte(fmt.Sprintf("%d", store.counter)))[:8]
+	}
 	
 	mapping := &URLMapping{
 		ShortCode:   shortCode,
 		OriginalURL: req.URL,
 		CreatedAt:   time.Now(),
 		ClickCount:  0,
+		CustomCode:  req.CustomCode,
 	}
+	
+	if req.ExpiresIn > 0 {
+		expiresAt := time.Now().AddDate(0, 0, req.ExpiresIn)
+		mapping.ExpiresAt = &expiresAt
+	}
+	
 	store.urls[shortCode] = mapping
 	store.mu.Unlock()
 
@@ -103,6 +129,12 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	store.mu.Lock()
 	mapping, exists := store.urls[shortCode]
 	if exists {
+		if mapping.ExpiresAt != nil && time.Now().After(*mapping.ExpiresAt) {
+			delete(store.urls, shortCode)
+			store.mu.Unlock()
+			http.Error(w, "Short URL has expired", http.StatusGone)
+			return
+		}
 		mapping.ClickCount++
 	}
 	store.mu.Unlock()

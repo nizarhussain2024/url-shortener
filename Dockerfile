@@ -12,3 +12,4 @@ COPY --from=builder /app/url-shortener .
 EXPOSE 8080
 CMD ["./url-shortener"]
 
+
