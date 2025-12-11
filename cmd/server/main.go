@@ -37,6 +37,8 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(analytics.GetStats())
 	}))
+	http.HandleFunc("/api/qrcode", loggingMiddleware(qrCodeHandler))
+	http.HandleFunc("/api/preview", loggingMiddleware(linkPreviewHandler))
 	http.HandleFunc("/", loggingMiddleware(redirectHandler))
 	http.HandleFunc("/api/stats/", loggingMiddleware(statsHandler))
 	http.HandleFunc("/health", healthHandler)
