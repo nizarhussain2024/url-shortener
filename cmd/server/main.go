@@ -32,6 +32,11 @@ var store = &URLStore{
 
 func main() {
 	http.HandleFunc("/api/shorten", loggingMiddleware(shortenHandler))
+	http.HandleFunc("/api/shorten/bulk", loggingMiddleware(bulkShortenHandler))
+	http.HandleFunc("/api/analytics", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(analytics.GetStats())
+	}))
 	http.HandleFunc("/", loggingMiddleware(redirectHandler))
 	http.HandleFunc("/api/stats/", loggingMiddleware(statsHandler))
 	http.HandleFunc("/health", healthHandler)
@@ -104,6 +109,8 @@ func shortenHandler(w http.ResponseWriter, r *http.Request) {
 	
 	store.urls[shortCode] = mapping
 	store.mu.Unlock()
+	
+	analytics.RecordCreation()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -136,6 +143,7 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		mapping.ClickCount++
+		analytics.RecordClick(shortCode)
 	}
 	store.mu.Unlock()
 
