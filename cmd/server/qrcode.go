@@ -41,3 +41,4 @@ func qrCodeHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(qrData)
 }
 
+

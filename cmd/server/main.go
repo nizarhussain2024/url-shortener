@@ -31,7 +31,7 @@ var store = &URLStore{
 }
 
 func main() {
-	http.HandleFunc("/api/shorten", loggingMiddleware(shortenHandler))
+	http.HandleFunc("/api/shorten", loggingMiddleware(rateLimitMiddleware(shortenHandler)))
 	http.HandleFunc("/api/shorten/bulk", loggingMiddleware(bulkShortenHandler))
 	http.HandleFunc("/api/analytics", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

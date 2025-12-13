@@ -19,3 +19,4 @@ func validateURL(url string) bool {
 	return len(url) > 0 && (url[:7] == "http://" || url[:8] == "https://")
 }
 
+
