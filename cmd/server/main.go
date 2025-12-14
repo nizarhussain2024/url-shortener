@@ -39,6 +39,7 @@ func main() {
 	}))
 	http.HandleFunc("/api/qrcode", loggingMiddleware(qrCodeHandler))
 	http.HandleFunc("/api/preview", loggingMiddleware(linkPreviewHandler))
+	http.HandleFunc("/api/bulk-delete", loggingMiddleware(bulkDeleteHandler))
 	http.HandleFunc("/", loggingMiddleware(redirectHandler))
 	http.HandleFunc("/api/stats/", loggingMiddleware(statsHandler))
 	http.HandleFunc("/health", healthHandler)
