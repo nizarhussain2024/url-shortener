@@ -44,6 +44,7 @@ func main() {
 	http.HandleFunc("/api/stats/", loggingMiddleware(statsHandler))
 	http.HandleFunc("/health", healthHandler)
 
+	startCleanupRoutine()
 	fmt.Println("URL Shortener running on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
